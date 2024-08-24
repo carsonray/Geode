@@ -39,10 +39,10 @@ class BasicModelOps(Operation):
     def summary(self):
         self.model.summary()
 
-    def load(self):
-        print("\nLoading model from checkpoints...\n")
+    def restore(self):
+        print("\nRestoring model from checkpoints...\n")
         # Load model
-        self.save.load_model(self.model)
+        return self.save.restore()
 
     def train(self, display=True, **kwargs):
         # Training

@@ -36,6 +36,6 @@ params["savedir"] = os.path.join(curr_dir, params["savedir"])
 
 
 ops = geode.operations.BasicModelOps(params)
-ops.load()
+ops.restore()
 #ops.train(epochs=5, validation_data=val_data)
 ops.predict((5,5))

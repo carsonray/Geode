@@ -18,20 +18,36 @@ import os
 # Data handlers
 
 class SaveCheckpoint:
-    def __init__(self, model, savedir):
+    def __init__(self, model, savedir, max_to_keep=3):
+        # Initializes model name and corresponding checkpoint directory
         self.name = model.name
-        cp_dir = f"{savedir}\\{self.name}"
+        self.dir = f"{savedir}\\{self.name}"
 
-        self.path = cp_dir +"\\cp-{epoch:04d}.ckpt"
-        self.dir = cp_dir
+        # Creates checkpoint object to save model and manager object to handle multiple checkpoints
+        self.ckpt = tf.train.Checkpoint(model=model)
+        self.manager = tf.train.CheckpointManager(self.ckpt, self.dir, max_to_keep=max_to_keep)
 
-        self.callback = tf.keras.callbacks.ModelCheckpoint(filepath=self.path,
-                                                 save_weights_only=True,
-                                                 verbose=1)
+        # Creates callback to save model
+        self.callback = SaveCallback(self.manager)
     
-    def load_model(self, model):
-        """Loads most recent checkpoint from savepath"""
-        model.load_weights(tf.train.latest_checkpoint(self.dir))
+    def restore(self):
+        """Loads most recent checkpoint"""
+        self.ckpt.restore(self.manager.latest_checkpoint)
+        if self.manager.latest_checkpoint:
+            print("Restored from {}".format(self.manager.latest_checkpoint))
+            return True
+        else:
+            print("Restore failed")
+            return False
+
+class SaveCallback(tf.keras.callbacks.Callback):
+    def __init__(self, manager):
+        super().__init__()
+        self.manager = manager
+
+    def on_epoch_end(self, epoch, logs=None):
+        print(f"Saved checkpoint to {self.manager.save()}")
+        self.manager.save()
 
 class DataHandler:
     type = "data_handler"
