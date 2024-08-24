@@ -2,23 +2,23 @@
 # 11/16/21
 # Nueral network testing with fashion mnist dataset
 print("Initializing Tensorflow...\n")
-import omninet as omni
+import geode
 import tensorflow as tf
 from collections import OrderedDict
 import os
 
 dataset_list = [
-    omni.datasets.Iris(),
-    omni.datasets.AutoMPG(),
-    omni.datasets.Titanic()
+    geode.datasets.Iris(),
+    geode.datasets.AutoMPG(),
+    geode.datasets.Titanic()
 ]
 batch_size = 32
-dataset =  omni.datasets.CombinedTasks(dataset_list)
+dataset =  geode.datasets.CombinedTasks(dataset_list)
 train_data = dataset.get("train", batch_size=batch_size)
 val_data = dataset.get("validate", shuffle_tasks=True, batch_size=batch_size)
 test_data = dataset.get("test", shuffle_tasks=True, batch_size=batch_size)
 
-runner = omni.models.TaskDense1()
+runner = geode.models.TaskDense1()
 model = runner(dataset.tasks, name="task_dense1")
 runner.compile(model)
 
@@ -43,7 +43,7 @@ curr_dir = os.path.dirname(__file__)
 params["savedir"] = os.path.join(curr_dir, params["savedir"])
 
 
-ops = omni.operations.BasicModelOps(params)
+ops = geode.operations.BasicModelOps(params)
 ops.summary()
 ops.train(epochs=20, validation_data=val_data)
 ops.test()

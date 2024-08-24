@@ -2,15 +2,15 @@
 # 11/16/21
 # Nueral network testing with fashion mnist dataset
 print("Initializing Tensorflow...\n")
-import omninet as omni
+import geode
 import os
 
-dataset =  omni.datasets.FashionMNIST()
+dataset =  geode.datasets.FashionMNIST()
 train_data = dataset.get("train", batch_size=32)
 val_data = dataset.get("validate", batch_size=32)
 test_data = dataset.get("test", batch_size=32)
 
-runner = omni.models.HebbianModel3()
+runner = geode.models.HebbianModel3()
 model = runner(name="hebbian3")
 runner.compile(model)
 
@@ -35,6 +35,6 @@ curr_dir = os.path.dirname(__file__)
 params["savedir"] = os.path.join(curr_dir, params["savedir"])
 
 
-ops = omni.operations.BasicModelOps(params)
+ops = geode.operations.BasicModelOps(params)
 ops.train(epochs=20, validation_data=val_data)
 ops.test()

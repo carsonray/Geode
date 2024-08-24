@@ -2,11 +2,11 @@
 # 11/16/21
 # Nueral network testing with fashion mnist dataset
 print("Initializing Tensorflow...\n")
-import omninet as omni
+import geode
 import tensorflow as tf
 import os
 
-dataset =  omni.datasets.FashionMNIST()
+dataset =  geode.datasets.FashionMNIST()
 train_data = dataset.get("train", batch_size=32)
 val_data = dataset.get("validate", batch_size=32)
 test_data = dataset.get("test", batch_size=32)
@@ -31,7 +31,7 @@ params = {
 starts = [0]
 ends = [21]
 runners = [
-    omni.models.MultiHebbian2()
+    geode.models.MultiHebbian2()
 ]
 model_roots = [
     "multi_hebbian2"
@@ -52,7 +52,7 @@ for start, end, runner, model_root, test_root in zip(starts, ends, runners, mode
         params["model"] = model
         params["test_name"] = "{}-{}".format(test_root, test)
 
-        ops = omni.operations.BasicModelOps(params)
+        ops = geode.operations.BasicModelOps(params)
 
 
         ops.train(epochs=20, validation_data=val_data, display=False)

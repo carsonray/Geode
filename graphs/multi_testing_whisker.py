@@ -10,8 +10,8 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
-from omninet.analysis import get_tests as tests
+import geode
+from geode.analysis import get_tests as tests
 import databases as connector
 
 # Sets up databases
@@ -45,11 +45,11 @@ print("Loading model data...\n")
 
 test_list = []
 for i in range(2):
-    test_list.append(omni.analysis.combine_data_series(names[i], engine, table_root + "_testing", mean=False))
+    test_list.append(geode.analysis.combine_data_series(names[i], engine, table_root + "_testing", mean=False))
 
 print("Displaying comparisons...\n")
 plt.rcParams.update({"font.size": 15})
-fig, axes = omni.analysis.get_test_fig(suptitle, metric_titles, ax_labels)
+fig, axes = geode.analysis.get_test_fig(suptitle, metric_titles, ax_labels)
 
 x = np.arange(len(labels))
 width = 0.4

@@ -13,8 +13,8 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
-from omninet.analysis import get_tests as tests
+import geode
+from geode.analysis import get_tests as tests
 import databases as connector
 
 # Sets up databases
@@ -40,8 +40,8 @@ labels = [
 # Load model data
 print("Loading model data...\n")
 
-train_list = omni.analysis.combine_data_series(names, engine, table_root + "_training", mean=False)
-test_list = omni.analysis.combine_data_series(names, engine, table_root + "_testing", mean=False)
+train_list = geode.analysis.combine_data_series(names, engine, table_root + "_training", mean=False)
+test_list = geode.analysis.combine_data_series(names, engine, table_root + "_testing", mean=False)
 # Creates blank dataframe
 overfit = pd.DataFrame()
 

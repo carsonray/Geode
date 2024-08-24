@@ -12,7 +12,7 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
+import geode
 import databases as connector
 
 # Sets up databases
@@ -30,7 +30,7 @@ titles = ["Loss", "Accuracy"]
 # Load model data
 print("Loading model data...\n")
 
-test_data = omni.combine_data_handlers(names, 
+test_data = geode.combine_data_handlers(names, 
                                         db_table=f"{table_root}_testing",
                                         database=engine)
 

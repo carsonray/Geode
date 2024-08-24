@@ -8,8 +8,8 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
-from omninet.analysis import get_tests as tests
+import geode
+from geode.analysis import get_tests as tests
 import databases as connector
 
 # Sets up database and parameters
@@ -41,12 +41,12 @@ ax_labels = ["Loss (categorical crossentropy)", "Accuracy"]
 # Load model data
 print("Loading model data...\n")
 
-test_list = omni.analysis.combine_data_series(names, engine, table_root + "_testing", mean=False)
+test_list = geode.analysis.combine_data_series(names, engine, table_root + "_testing", mean=False)
 
 
 # Graphs box and whisker plots for loss and accuracy
 plt.rcParams.update({"font.size": 15})
-omni.analysis.plot_test_whisker(test_list, labels, metrics, metric_titles=metric_titles,
+geode.analysis.plot_test_whisker(test_list, labels, metrics, metric_titles=metric_titles,
                                 ax_labels=ax_labels, suptitle=suptitle, colors=colors)
 
 

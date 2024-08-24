@@ -5,7 +5,7 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
+import geode
 import databases as connector
 
 test_engine = connector.sqlalchemy_connect("interface_test")
@@ -16,7 +16,7 @@ info = {
 }
 
 print("Loading handler")
-handler = omni.DataHandler("test_handler", 
+handler = geode.DataHandler("test_handler", 
                             database=test_engine, 
                             columns=["epoch", "loss", "accuracy"], 
                             info=info)
@@ -29,6 +29,6 @@ handler.add({
 })
 
 print("Creating new handler")
-load_handler = omni.DataHandler("test_handler", database=test_engine, load=True)
+load_handler = geode.DataHandler("test_handler", database=test_engine, load=True)
 print(load_handler.info)
 print(load_handler.values)

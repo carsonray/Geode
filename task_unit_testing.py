@@ -2,16 +2,16 @@
 # 11/16/21
 # Nueral network testing with fashion mnist dataset
 print("Initializing Tensorflow...\n")
-import omninet as omni
+import geode
 import os
 
 dataset_list = [
-    omni.datasets.MNISTDigits(),
-    omni.datasets.FashionMNIST(),
-    omni.datasets.CIFAR10()
+    geode.datasets.MNISTDigits(),
+    geode.datasets.FashionMNIST(),
+    geode.datasets.CIFAR10()
 ]
 
-dataset =  omni.datasets.CombinedTasks(dataset_list)
+dataset =  geode.datasets.CombinedTasks(dataset_list)
 train_data = dataset.get("train", take=54000, batch_size=32)
 val_data = dataset.get("validate", take=6000, shuffle_tasks=True, batch_size=32)
 test_data = dataset.get("test", take=12000, shuffle_tasks=True, batch_size=32)
@@ -36,9 +36,9 @@ params = {
 test_starts = [0]*4
 test_nums = [5]*4
 runners = [
-    omni.models.MultiConv1(task=False),
-    omni.models.MultiHebbConv2(task=True),
-    omni.models.MultiHebbConv2(task=False)
+    geode.models.MultiConv1(task=False),
+    geode.models.MultiHebbConv2(task=True),
+    geode.models.MultiHebbConv2(task=False)
 ]
 model_roots = [
     "multiconv1n",
@@ -63,7 +63,7 @@ for test_start, test_num, runner, model_root, test_root in zip(test_starts, test
         params["model"] = model
         params["test_name"] = "{}-{}".format(test_root, test)
 
-        ops = omni.operations.BasicModelOps(params)
+        ops = geode.operations.BasicModelOps(params)
 
 
         ops.train(epochs=20, validation_data=val_data, display=False)

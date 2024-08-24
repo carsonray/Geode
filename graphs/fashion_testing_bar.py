@@ -13,7 +13,7 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
+import geode
 import databases as connector
 
 # Sets up databases
@@ -41,7 +41,7 @@ for root in name_roots:
     for i in range(num):
         names.append(f"{root}-{i}")
 
-    raw = omni.combine_data_handlers(names, 
+    raw = geode.combine_data_handlers(names, 
                                     db_table=f"{table_root}_testing",
                                     database=engine)
     raw = raw.drop(["name", "epoch"], axis=1)

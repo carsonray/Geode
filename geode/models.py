@@ -3,7 +3,7 @@ from .core import *
 from tensorflow import keras as K
 from collections import OrderedDict
 from .layers import MultiWrapper, MultiRecursionBlock, MultiDense
-from .layers import Hebbian, Hebbian2, Hebbian3, Hebbian4, MultiHebbian, MultiHebbian2, NueralMemory, MultiConv2D, OneHotEncoder
+from .layers import MultiHebbian, MultiHebbian2, MultiConv2D, OneHotEncoder
 
 class ModelRunner:
     def __call__(self, *args, **kwargs):
@@ -34,7 +34,7 @@ class ModelRunner:
         return handler
 
 
-        
+
 
 class FashionDense1(ModelRunner):
     def get(self, name="fashion_dense1", **kwargs):
@@ -51,30 +51,6 @@ class FashionDense1(ModelRunner):
         model.compile(optimizer='adam',
             loss=loss,
             metrics=['accuracy'])
-
-class FashionEval1(ModelRunner):
-    def get(self, name="fashion_eval1"):
-        img_in = K.Input(shape=[28, 28, 1], dtype=tf.float32)
-
-        x = K.layers.Flatten(input_shape=(28, 28))(img_in)
-        x = K.layers.Dense(128, activation='relu')(x)
-        x = K.layers.Dense(20, activation='relu')(x)
-        out = K.layers.Dense(10, activation='relu')(x)
-
-        model = K.Model(img_in, out)
-
-        # Gets evaluator model
-        evaluator = img_eval1()
-
-        # Combines in intrinsic evaluation network
-        final = IEN(model, evaluator, name=name)
-
-        return final
-
-    def compile(self, model):
-        model.compile(m_optimizer='adam', e_optimizer='adam',
-                    m_track=CategoricalTracker("m_loss", "m_accuracy", named=False, reduction="none"),
-                    e_track=NumericTracker("e_loss", "e_accuracy", named=False))
 
 class MultiProcess1(ModelRunner):
     def get(self, name="multi_process1"):
@@ -132,101 +108,6 @@ class MultiHebbianModel2(ModelRunner):
             loss=loss,
             metrics=['accuracy'])
 
-class HebbianModel1(ModelRunner):
-    def get(self, name="hebbian1"):
-        img_in = K.Input(shape=[28, 28, 1], dtype=tf.float32)
-        
-        x = K.layers.Flatten(input_shape=(28, 28))(img_in)
-        x = Hebbian(128, rate=0.01, activation='relu')(x)
-        x = Hebbian(20, rate=0.01, activation='relu')(x)
-        out = Hebbian(10, rate=0.01, activation='relu')(x)
-        
-        model = K.Model(img_in, out, name=name)
-
-        return model
-
-    def compile(self, model, loss=K.losses.CategoricalCrossentropy(from_logits=True)):
-        model.compile(optimizer='adam',
-            loss=loss,
-            metrics=['accuracy'])
-
-class HebbianModel2(ModelRunner):
-    def get(self, name="hebbian1"):
-        img_in = K.Input(shape=[28, 28, 1], dtype=tf.float32)
-        
-        x = K.layers.Flatten(input_shape=(28, 28))(img_in)
-        x = Hebbian2(128, activation='relu')(x)
-        x = Hebbian2(20, activation='relu')(x)
-        out = Hebbian2(10, activation='relu')(x)
-        
-        model = K.Model(img_in, out, name=name)
-
-        return model
-
-    def compile(self, model, loss=K.losses.CategoricalCrossentropy(from_logits=True)):
-        model.compile(optimizer='adam',
-            loss=loss,
-            metrics=['accuracy'])
-
-class HebbianModel3(ModelRunner):
-    def get(self, name="hebbian1"):
-        img_in = K.Input(shape=[28, 28, 1], dtype=tf.float32)
-        
-        x = K.layers.Flatten(input_shape=(28, 28))(img_in)
-        x = Hebbian3(128, activation='relu')(x)
-        x = Hebbian3(20, activation='relu')(x)
-        out = Hebbian3(10, activation='relu')(x)
-        
-        model = K.Model(img_in, out, name=name)
-
-        return model
-
-    def compile(self, model, loss=K.losses.CategoricalCrossentropy(from_logits=True)):
-        model.compile(optimizer='adam',
-            loss=loss,
-            metrics=['accuracy'])
-
-class HebbianModel4(ModelRunner):
-    def get(self, name="hebbian1", batch_size=None):
-        img_in = K.Input(shape=[28, 28, 1], batch_size=batch_size, dtype=tf.float32)
-        
-        x = K.layers.Flatten(input_shape=(28, 28))(img_in)
-        x = Hebbian4(128, activation='relu')(x)
-        x = Hebbian4(20, activation='relu')(x)
-        out = Hebbian4(10, activation='relu')(x)
-        
-        model = K.Model(img_in, out, name=name)
-
-        return model
-
-    def compile(self, model, loss=K.losses.CategoricalCrossentropy(from_logits=True)):
-        model.compile(optimizer='adam',
-            loss=loss,
-            metrics=['accuracy'])
-
-class Memory1(ModelRunner):
-    def get(self, name="memory1", batch_size=None):
-        img_in = K.Input(shape=[28, 28, 1], batch_size=batch_size, dtype=tf.float32)
-        
-        x = K.layers.Flatten(input_shape=(28, 28))(img_in)
-        x = K.layers.Dense(128, activation='relu')(x)
-        x = K.layers.Dense(20, activation='relu')(x)
-        x, y = tf.split(x, [10, 10], axis=-1)
-
-        y = NueralMemory(normalize=0.05)(y)
-
-        x = K.layers.Concatenate(axis=-1)([x, y])
-        out = K.layers.Dense(10, activation='relu')(x)
-        
-        model = K.Model(img_in, out, name=name)
-
-        return model
-
-    def compile(self, model, loss=K.losses.CategoricalCrossentropy(from_logits=True)):
-        model.compile(optimizer='adam',
-            loss=loss,
-            metrics=['accuracy'])
-
 class TaskConv1(ModelRunner):
     def __init__(self, task=True):
         super().__init__()
@@ -271,53 +152,6 @@ class TaskConv1(ModelRunner):
 
     def compile(self, model):
         model.compile(optimizer='adam', trackers=[CategoricalTracker()])
-
-
-class HebbConv1(ModelRunner):
-    def __init__(self, task=True):
-        super().__init__()
-        self.use_task = task
-
-    def get(self, tasks, name="task_conv1"):
-        # Gets image input
-        img_in = K.Input(shape=[32, 32, 3], name="img_in", dtype=tf.float32)
-        inputs = [img_in]
-
-        # Applies downsampling
-        x = conv_down(16, 4, 2, batchnorm=False)(img_in) # (batch, 16, 16, 16)
-        x = conv_down(32, 4, 2)(x) # (batch, 8, 8, 32)
-        x = conv_down(32, 4, 2)(x) # (batch, 4, 4, 32)
-        x = conv_down(32, 4, 2)(x) # (batch, 2, 2, 32)
-        x = conv_down(32, 4, 2)(x) # (batch, 1, 1, 32)
-
-
-        # Flattens
-        x = K.layers.Flatten()(x) # (batch, 32)
-
-        if self.use_task:
-            # Gets task input
-            task_in = K.Input(shape=[], name="task", dtype=tf.int32)
-            inputs.append(task_in)
-
-            # Concatenates with task
-            task = OneHotEncoder(tasks)(task_in)
-            x = K.layers.Concatenate(axis=-1)([task, x])
-
-        # Fully connected layers
-        x = Hebbian2(20, activation="relu")(x)
-        cat_out = Hebbian2(10, activation="relu")(x)
-
-        # Puts into feature dict
-        output = OrderedDict([("cat_out", cat_out)])
-
-        # Forms final model
-        model = TaskModel([inputs], output, name=name)
-
-        return model
-
-    def compile(self, model):
-        model.compile(optimizer='adam', trackers=[CategoricalTracker()])
-
 
 class MultiConv1(ModelRunner):
     def __init__(self, task=True):
@@ -767,110 +601,6 @@ def conv_down(filters, size, strides=1, batchnorm=True):
 
     return result
 
-class IEN(tf.keras.Model):
-    def __init__(self, model, evaluator, **kwargs):
-        super().__init__(**kwargs)
-        self.model = model
-        self.evaluator = evaluator
-
-    def compile(self, m_optimizer, e_optimizer, m_track, e_track):
-        super().compile()
-        self.m_optimizer = tf.keras.optimizers.get(m_optimizer)
-        self.e_optimizer = tf.keras.optimizers.get(e_optimizer)
-        self.m_track = m_track
-        self.e_track = e_track
-
-    def call(self, data, **kwargs):
-        # Gets result from model
-        return self.model(data, **kwargs)
-    
-    def train_step(self, data):
-        # Unpacks data and labels
-        in_data, labels = data
-
-        # Gradient descent
-        with tf.GradientTape(persistent=True) as tape:
-            # Forward pass of model
-            pred = self(in_data, training=True)
-
-            # Gets model loss
-            m_loss = self.m_track.get_loss(labels, pred)
-
-            # Calls evaluator to get loss prediction
-            eval_in = OrderedDict([
-                ("data", in_data),
-                ("pred", pred)
-            ])
-
-            loss_pred = self.evaluator(eval_in, training=True)
-
-            # Gets mean of loss_pred to use in training
-            m_loss_pred = tf.reduce_mean(loss_pred, axis=0)
-
-            # Gets evaluator loss
-            e_loss = self.e_track.get_loss(m_loss, loss_pred)
-
-        # Compute gradients for evaluator
-        e_trainable_vars = self.evaluator.trainable_variables
-        e_gradients = tape.gradient(e_loss, e_trainable_vars)
-        
-        # Update evaluator weights
-        self.e_optimizer.apply_gradients(zip(e_gradients, e_trainable_vars))
-
-        # Updates evaluator metrics
-        self.e_track.update_metrics(e_loss, m_loss, loss_pred)
-
-
-        # Compute gradients for model based on evaluator prediction
-        m_trainable_vars = self.model.trainable_variables
-        m_gradients = tape.gradient(m_loss_pred, m_trainable_vars)
-        
-        # Update model weights
-        self.m_optimizer.apply_gradients(zip(m_gradients, m_trainable_vars))
-        
-        # Updates model metrics
-        self.m_track.update_metrics(m_loss, labels, pred)
-        
-        # Return a dict mapping metric names to current value
-        return {m.name: m.result() for m in self.metrics}
-
-    def test_step(self, data):
-        # Unpacks data and labels
-        in_data, labels = data
-
-        # Forward pass of model
-        pred = self(in_data, training=False)
-
-        # Gets model loss
-        m_loss = self.m_track.get_loss(labels, pred)
-
-        # Calls evaluator to get loss prediction
-        eval_in = OrderedDict([
-            ("data", in_data),
-            ("pred", pred)
-        ])
-
-        loss_pred = self.evaluator(eval_in, training=False)
-
-        # Gets evaluator loss
-        e_loss = self.e_track.get_loss(m_loss, loss_pred)
-
-        # Updates model metrics
-        self.e_track.update_metrics(e_loss, m_loss, loss_pred)
-        
-        
-        # Updates evaluator metrics
-        self.m_track.update_metrics(m_loss, labels, pred)
-        
-        # Return a dict mapping metric names to current value
-        return {m.name: m.result() for m in self.metrics}
-
-    @property
-    def metrics(self):
-        metrics = self.m_track.metrics + self.e_track.metrics
-            
-        return metrics
-
 class TaskModel(tf.keras.Model):
     def __init__(self, inputs, outputs, **kwargs):
         super().__init__(inputs, outputs, **kwargs)
@@ -966,27 +696,5 @@ def multiconv_down(filters, size, strides=[1, 1], last=False):
     wrapper.add("out", K.layers.LeakyReLU())
 
     return wrapper
-
-def img_eval1():
-    # Tries to predict loss from model input and output
-    img_in = K.Input(shape=[28, 28, 1], name="data", dtype=tf.float32)
-    cat_in = K.Input(shape=[10], name="pred", dtype=tf.float32)
-
-    # Processes image
-    x = K.layers.Flatten(input_shape=(28, 28))(img_in)
-    x = K.layers.Dense(128, activation="relu")(x)
-    x = K.layers.Dense(20, activation="relu")(x)
-
-    # Concatenates with categorical data
-    x = K.layers.Concatenate(axis=-1)([cat_in, x])
-    
-    # Final layers
-    x = K.layers.Dense(20, activation="relu")(x)
-    x = K.layers.Dense(10, activation="relu")(x)
-    out = K.layers.Dense(1, activation="relu")(x)
-        
-    model = K.Model([img_in, cat_in], out)
-
-    return model
 
     

@@ -12,8 +12,8 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
-from omninet.analysis import get_tests as tests
+import geode
+from geode.analysis import get_tests as tests
 import databases as connector
 
 # Sets up databases
@@ -38,13 +38,13 @@ ax_labels = ["Loss (categorical crossentropy)", "Accuracy"]
 # Load model data
 print("Loading model data...\n")
 
-train_list = omni.analysis.combine_data_series(names, engine, table_root + "_training", mean_col="epoch")
+train_list = geode.analysis.combine_data_series(names, engine, table_root + "_training", mean_col="epoch")
 
-test_list = omni.analysis.combine_data_series(names, engine, table_root + "_testing")
+test_list = geode.analysis.combine_data_series(names, engine, table_root + "_testing")
 
 print("Displaying comparisons...\n")
 plt.rcParams.update({"font.size": 15})
-fig, axes = omni.analysis.get_train_fig(suptitle, metric_titles, ax_labels)
-omni.analysis.plot_train_series(fig, axes, train_list, test_list, labels, metrics, colors=colors)
-omni.analysis.train_proxy_legend(axes)
+fig, axes = geode.analysis.get_train_fig(suptitle, metric_titles, ax_labels)
+geode.analysis.plot_train_series(fig, axes, train_list, test_list, labels, metrics, colors=colors)
+geode.analysis.train_proxy_legend(axes)
 plt.show()

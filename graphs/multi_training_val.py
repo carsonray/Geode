@@ -12,8 +12,8 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
-from omninet.analysis import get_tests as tests
+import geode
+from geode.analysis import get_tests as tests
 import databases as connector
 
 # Sets up databases
@@ -48,18 +48,18 @@ print("Loading model data...\n")
 train_list = []
 test_list = []
 for i in range(2):
-    train_list.append(omni.analysis.combine_data_series(names[i], engine, table_root + "_training", mean_col="epoch"))
+    train_list.append(geode.analysis.combine_data_series(names[i], engine, table_root + "_training", mean_col="epoch"))
 
-    test_list.append(omni.analysis.combine_data_series(names[i], engine, table_root + "_testing"))
+    test_list.append(geode.analysis.combine_data_series(names[i], engine, table_root + "_testing"))
 
 
 print("Displaying comparisons...\n")
 plt.rcParams.update({"font.size": 15})
-fig, axes = omni.analysis.get_train_fig(suptitle, metric_titles, ax_labels)
+fig, axes = geode.analysis.get_train_fig(suptitle, metric_titles, ax_labels)
 
-omni.analysis.plot_train_series(fig, axes, train_list[0], test_list[0], labels, metrics, colors=colors, use="val", legend_loc=(0.34, 0.01))
+geode.analysis.plot_train_series(fig, axes, train_list[0], test_list[0], labels, metrics, colors=colors, use="val", legend_loc=(0.34, 0.01))
 
-omni.analysis.plot_train_series(fig, axes, train_list[1], test_list[1], labels, metrics, colors=colors, use="val",
+geode.analysis.plot_train_series(fig, axes, train_list[1], test_list[1], labels, metrics, colors=colors, use="val",
                                 linestyle="dotted", legend=False)
 
 for num, metric in enumerate(metrics):

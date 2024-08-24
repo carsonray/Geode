@@ -9,9 +9,9 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
-from omninet.analysis import get_tests as tests
-from omninet.analysis import reduce_series
+import geode
+from geode.analysis import get_tests as tests
+from geode.analysis import reduce_series
 import databases as connector
 
 # Sets up database and parameters
@@ -40,11 +40,11 @@ print("Loading model data...\n")
 mean_list = []
 error_list = []
 
-train_list = omni.analysis.combine_data_series(names, engine, table_root + "_training", mean=False)
+train_list = geode.analysis.combine_data_series(names, engine, table_root + "_training", mean=False)
 mean_list.append(reduce_series(train_list, lambda df: df.mean()))
 error_list.append(reduce_series(train_list, lambda df: df.sem()))
 
-test_list = omni.analysis.combine_data_series(names, engine, table_root + "_testing", mean=False)
+test_list = geode.analysis.combine_data_series(names, engine, table_root + "_testing", mean=False)
 test_data = pd.concat(test_list, ignore_index=True)
 mean_list.append(reduce_series(test_list, lambda df: df.mean()))
 error_list.append(reduce_series(test_list, lambda df: df.sem()))

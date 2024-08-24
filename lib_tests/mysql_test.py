@@ -1,4 +1,3 @@
-import mysql.connector as connector
 import numpy as np
 from tabulate import tabulate
 

@@ -11,9 +11,9 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import omninet as omni
-from omninet.analysis import get_tests as tests
-from omninet.analysis import reduce_series
+import geode
+from geode.analysis import get_tests as tests
+from geode.analysis import reduce_series
 import databases as connector
 
 # Sets up databases
@@ -52,7 +52,7 @@ for num, extension in enumerate(("_training", "_testing")):
     error_list.append([])
     
     for i in range(2):
-        data_list = omni.analysis.combine_data_series(names[i], engine, table_root + extension, mean=False)
+        data_list = geode.analysis.combine_data_series(names[i], engine, table_root + extension, mean=False)
 
         mean_list[num].append(reduce_series(data_list, lambda df: df.mean()))
         error_list[num].append(reduce_series(data_list, lambda df: df.sem()))
