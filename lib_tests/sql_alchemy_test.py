@@ -7,7 +7,7 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import databases
+import geode.databases as databases
 
 def clean_list(nested):
     return [list(obj) for obj in nested]

@@ -6,9 +6,19 @@ import sys
 sys.path.append(os.path.join(dirname,".."))
 
 import geode
-import databases as connector
+import geode.databases as connector
 
-test_engine = connector.sqlalchemy_connect("interface_test")
+import json
+# Database connections
+
+CONFIG = "db_config.json"
+
+
+# Loads configuration file
+config_file = open(CONFIG)
+connections = json.load(config_file)
+
+test_engine = connector.sqlalchemy_connect(connections["home"], "testdb")
 
 info = {
     "model": "dense_model",

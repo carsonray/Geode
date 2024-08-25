@@ -12,7 +12,7 @@ sys.path.append(os.path.join(dirname,".."))
 
 import geode
 from geode.analysis import get_tests as tests
-import databases as connector
+import geode.databases as connector
 
 # Sets up databases
 engine = connector.sqlalchemy_connect("model_data")

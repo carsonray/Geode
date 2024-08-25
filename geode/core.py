@@ -34,10 +34,10 @@ class SaveCheckpoint:
         """Loads most recent checkpoint"""
         self.ckpt.restore(self.manager.latest_checkpoint)
         if self.manager.latest_checkpoint:
-            print("Restored from {}".format(self.manager.latest_checkpoint))
+            print("\nRestored from {}\n".format(self.manager.latest_checkpoint))
             return True
         else:
-            print("Restore failed")
+            print("\nRestore failed\n")
             return False
 
 class SaveCallback(tf.keras.callbacks.Callback):
@@ -46,7 +46,7 @@ class SaveCallback(tf.keras.callbacks.Callback):
         self.manager = manager
 
     def on_epoch_end(self, epoch, logs=None):
-        print(f"Saved checkpoint to {self.manager.save()}")
+        print(f"\nSaved checkpoint to {self.manager.save()}")
         self.manager.save()
 
 class DataHandler:

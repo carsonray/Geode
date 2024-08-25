@@ -5,7 +5,7 @@ dirname = os.path.dirname(__file__)
 import sys
 sys.path.append(os.path.join(dirname,".."))
 
-import databases
+from .databases import *
 
 
 class Operation:
@@ -23,7 +23,7 @@ class BasicModelOps(Operation):
     def setup(self):
         # Sets up databases
         print("\nConnecting to database\n")
-        self.engine = databases.sqlalchemy_connect(self.database)
+        self.engine = sqlalchemy_connect(self.dbconfig, self.database)
 
         # Saving handler
         self.save = SaveCheckpoint(self.model, self.savedir)
