@@ -46,7 +46,7 @@ class SaveCallback(tf.keras.callbacks.Callback):
         self.manager = manager
 
     def on_epoch_end(self, epoch, logs=None):
-        print(f"\nSaved checkpoint to {self.manager.save()}")
+        print(f"\nSaved checkpoint")
         self.manager.save()
 
 class DataHandler:
@@ -187,7 +187,7 @@ class TrainCallback(HandlerCallback):
     def on_epoch_end(self, epoch, logs=None):
         time = self.get_time()
 
-        print(f"Epoch {epoch + 1:05}: saving {self.handler.name} data")
+        print(f"\nEpoch {epoch + 1:05}: saving {self.handler.name} data")
 
         add_logs = logs.copy()
         add_logs["epoch"] = epoch

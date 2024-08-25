@@ -34,18 +34,18 @@ with tf.device('/CPU:0'):
         "model": model,
         "dataset": dataset,
         "train_data": train_data,
-        "test_data": test_data,
+        "test_data": test_data#,
 
-        "savedir": ".\\model_checkpoints",
-        "dbconfig": connections["home"],
-        "database": "model_metrics"
+        #"savedir": ".\\model_checkpoints",
+        #"dbconfig": connections["home"],
+        #"database": "model_metrics"
     }
 
 
 
     # Model saving filepath
-    curr_dir = os.path.dirname(__file__)
-    params["savedir"] = os.path.join(curr_dir, params["savedir"])
+    #curr_dir = os.path.dirname(__file__)
+    #params["savedir"] = os.path.join(curr_dir, params["savedir"])
 
 
     ops = geode.operations.BasicModelOps(params)

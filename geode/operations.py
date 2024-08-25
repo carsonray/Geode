@@ -22,19 +22,20 @@ class Operation:
 class BasicModelOps(Operation):
     def setup(self):
         # Sets up databases
-        print("\nConnecting to database\n")
-        self.engine = sqlalchemy_connect(self.dbconfig, self.database)
+        if hasattr(self, "dbconfig"):
+            print("\nConnecting to database\n")
+            self.engine = sqlalchemy_connect(self.dbconfig, self.database)
+            print("Database: {}".format(self.database))
 
         # Saving handler
-        self.save = SaveCheckpoint(self.model, self.savedir)
+        if hasattr(self, "savedir"):
+            self.save = SaveCheckpoint(self.model, self.savedir)
+            print("Checkpoint directory: {}\n".format(self.save.dir))
 
         # Displays test info
         print("\nTest name: {} - {}".format(self.table_root, self.test_name))
         print("Model: {} - {}".format(type(self.runner).__name__, self.model.name))
         print("Dataset: {}\n".format(self.dataset.name))
-
-        print("Database: {}".format(self.database))
-        print("Checkpoint directory: {}\n".format(self.save.dir))
 
     def summary(self):
         self.model.summary()
@@ -47,8 +48,19 @@ class BasicModelOps(Operation):
     def train(self, display=True, **kwargs):
         # Training
         print("\nTraining model...\n")
-        db_table = self.table_root + "_training"
-        self.train_handler = self.runner.train(self.test_name, self.model, self.train_data, db_table=db_table, database=self.engine, callbacks=[self.save.callback], **kwargs)
+
+        db_table = None
+        database = None
+        if hasattr(self, "dbconfig"):
+            db_table = self.table_root + "_training"
+            database = self.engine
+        
+        callbacks = []
+        if hasattr(self, "save"):
+            callbacks = [self.save.callback]
+
+        self.train_handler = self.runner.train(self.test_name, self.model, self.train_data, db_table=db_table, database=database, callbacks=callbacks, **kwargs)
+        
         if display:
             print("\nDisplaying training data...\n")
             self.train_handler.display_line("epoch")
@@ -57,8 +69,14 @@ class BasicModelOps(Operation):
     def test(self, display=True, **kwargs):
         # Testing
         print("\nTesting model...\n")
-        db_table = self.table_root + "_testing"
-        self.test_handler = self.runner.test(self.test_name, self.model, self.test_data, db_table=db_table, database=self.engine, verbose=2,**kwargs)
+
+        database = None
+        db_table = None
+        if hasattr(self, "dbconfig"):
+            database = self.engine
+            db_table = self.table_root + "_testing"
+        
+        self.test_handler = self.runner.test(self.test_name, self.model, self.test_data, db_table=db_table, database=database, verbose=2,**kwargs)
         if display:
             print("\nDisplaying testing data...\n")
             self.test_handler.display_bar()
