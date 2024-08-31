@@ -3,7 +3,7 @@ from .core import *
 from tensorflow import keras as K
 from collections import OrderedDict
 from .layers import MultiWrapper, MultiRecursionBlock, MultiDense
-from .layers import MultiHebbian, MultiHebbian2, MultiConv2D, OneHotEncoder
+from .layers import MultiHebb2, MultiHebbQ, MultiConv2D, OneHotEncoder
 
 class ModelRunner:
     def __call__(self, *args, **kwargs):
@@ -32,8 +32,6 @@ class ModelRunner:
         predictions = model.predict(handler.dataset)
         handler.add_predictions(predictions)
         return handler
-
-
 
 
 class FashionDense1(ModelRunner):
@@ -70,14 +68,14 @@ class MultiProcess1(ModelRunner):
             loss=loss,
             metrics=['accuracy'])
 
-class MultiHebbian1(ModelRunner):
+class MultiHebbian2(ModelRunner):
     def get(self, name="multi_hebbian1", batch_size=None):
         img_in = K.Input(shape=[28, 28, 1], dtype=tf.float32, batch_size=batch_size)
         x = K.layers.Flatten(input_shape=(28, 28))(img_in)
         out = MultiRecursionBlock([
             MultiDense(128, activation="relu"),
-            MultiHebbian(20, activation='relu'),
-            MultiHebbian(10, activation='relu')
+            MultiHebb2(20, activation='relu'),
+            MultiHebb2(10, activation='relu')
         ], steps=8, preserve_input=True)(x)
 
         model = K.Model(img_in, out, name=name)
@@ -88,25 +86,26 @@ class MultiHebbian1(ModelRunner):
         model.compile(optimizer='adam',
             loss=loss,
             metrics=['accuracy'])
-
-class MultiHebbianModel2(ModelRunner):
-    def get(self, name="multi_hebbian2"):
-        img_in = K.Input(shape=[28, 28, 1], dtype=tf.float32)
+        
+class MultiHebbianQ(ModelRunner):
+    def get(self, name="multi_hebb_Q", batch_size=None):
+        img_in = K.Input(shape=[28, 28, 1], dtype=tf.float32, batch_size=batch_size)
+        label_in = K.Input(shape=[10], dtype=tf.float32, batch_size=batch_size)
         x = K.layers.Flatten(input_shape=(28, 28))(img_in)
-        out = MultiRecursionBlock([
-            MultiDense(128, activation="relu"),
-            MultiHebbian2(20, activation='relu'),
-            MultiHebbian2(10, activation='relu')
-        ], steps=8, preserve_input=True)(x)
+        rblock = MultiRecursionBlock([
+            MultiHebbQ(128, activation="relu"),
+            MultiHebbQ(20, activation='relu'),
+            MultiHebbQ(10, activation='relu')
+        ], steps=8, preserve_input=True)
+        out = rblock(x, label=label_in)
 
-        model = K.Model(img_in, out, name=name)
+        model = HebbianModel([img_in, label_in], out, name=name, rblock=rblock)
 
         return model
 
-    def compile(self, model, loss=K.losses.CategoricalCrossentropy(from_logits=True)):
+    def compile(self, model):
         model.compile(optimizer='adam',
-            loss=loss,
-            metrics=['accuracy'])
+            trackers=[CategoricalTracker(named=False)])
 
 class TaskConv1(ModelRunner):
     def __init__(self, task=True):
@@ -188,54 +187,6 @@ class MultiConv1(ModelRunner):
         cat_out = MultiRecursionBlock([
             MultiDense(20, activation="relu"),
             MultiDense(10, activation="relu")
-        ], steps=4, preserve_input=True)(x)
-        
-        # Puts into feature dict
-        output = OrderedDict([("cat_out", cat_out)])
-
-        # Forms final model
-        model = TaskModel(inputs, output, name=name)
-
-        return model
-
-    def compile(self, model):
-        model.compile(optimizer='adam', trackers=[CategoricalTracker()])
-
-class MultiHebbConv1(ModelRunner):
-    def __init__(self, task=True):
-        super().__init__()
-        self.use_task = task
-
-    def get(self, tasks, name="multi_conv1"):
-        # Gets image input
-        img_in = K.Input(shape=[32, 32, 3], name="img_in", dtype=tf.float32)
-        inputs = [img_in]
-
-        # Applies downsampling
-        x = MultiRecursionBlock([
-            multiconv_down(8, [4, 4], [2, 2]), # (batch, 16, 16, 16)
-            multiconv_down(16, [4, 4], [2, 2]), # (batch, 8, 8, 16)
-            multiconv_down(16, [4, 4], [2, 2]), # (batch, 4, 4, 16)
-            multiconv_down(16, [4, 4], [2, 2]), # (batch, 2, 2, 32)
-            multiconv_down(32, [4, 4], [2, 2], last=True) # (batch, 1, 1, 32)
-        ], steps=10, recur=False, preserve_input=True)(img_in)
-        
-        # Flattens
-        x = K.layers.Flatten()(x) # (batch, 32)
-
-        if self.use_task:
-            # Gets task input
-            task_in = K.Input(shape=[], name="task", dtype=tf.int32)
-            inputs.append(task_in)
-
-            # Concatenates with task
-            task = OneHotEncoder(tasks)(task_in)
-            x = K.layers.Concatenate(axis=-1)([task, x])
-        
-        # Fully connected layers
-        cat_out = MultiRecursionBlock([
-            MultiHebbian(20, activation="relu"),
-            MultiHebbian(10, activation="relu")
         ], steps=4, preserve_input=True)(x)
         
         # Puts into feature dict
@@ -659,6 +610,77 @@ class TaskModel(tf.keras.Model):
 
         # Forward pass
         pred = self(features, training=False)
+
+        # Gets losses
+        losses = self.tracker_losses(labels, pred)
+
+        # Updates loss trackers and metrics
+        self.tracker_metrics(losses, labels, pred)
+        
+        # Return a dict mapping metric names to current value
+        return {m.name: m.result() for m in self.metrics}
+
+    @property
+    def metrics(self):
+        metrics = []
+
+        for tracker in self.trackers:
+            metrics.extend(tracker.metrics)
+            
+        return metrics
+    
+class HebbianModel(tf.keras.Model):
+    def __init__(self, inputs, outputs, rblock=None, **kwargs):
+        super().__init__(inputs, outputs, **kwargs)
+        self.rblock = rblock
+
+    def compile(self, trackers=[], weights=None, **kwargs):
+        super().compile(**kwargs)
+
+        # Defines loss trackers and metrics
+        self.trackers = trackers
+
+        # Defines weights on each tracker's loss
+        self.track_weights = tf.constant([1/len(trackers)]*len(trackers)) if weights is None else tf.constant(weights)
+
+    def tracker_losses(self, labels, pred):
+        # Calculates losses from all trackers
+        losses = [tracker.get_loss(labels, pred) for tracker in self.trackers]
+
+        return losses
+
+    def tracker_metrics(self, losses, labels, pred):
+        # Updates metrics from all trackers
+        for num, tracker in enumerate(self.trackers):
+            tracker.update_metrics(losses[num], labels, pred)
+
+    def train_step(self, data):
+        self.rblock.label_on()
+
+        # Unpacks data and labels
+        features, labels = data
+
+        # Forward pass
+        pred = self([features, labels], training=True)
+
+        # Gets losses
+        losses = self.tracker_losses(labels, pred)
+
+        # Update metrics and loss trackers
+        self.tracker_metrics(losses, labels, pred)
+        
+        # Return a dict mapping metric names to current value
+        return {m.name: m.result() for m in self.metrics}
+
+    def test_step(self, data):
+        # Turns off label
+        self.rblock.label_off()
+
+        # Unpacks data and labels
+        features, labels = data
+
+        # Forward pass
+        pred = self([features, batch_zeros(labels, labels.shape[1:])], training=False)
 
         # Gets losses
         losses = self.tracker_losses(labels, pred)

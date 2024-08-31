@@ -43,12 +43,20 @@ class RecursionBlock(tf.keras.layers.Layer):
             return data[-1]
 
 class MultiRecursionBlock(RecursionBlock):
-    def __init__(self, layers, steps, stride=1, recur=True, preserve_input=False, all_outputs=False, **kwargs):
+    def __init__(self, layers, steps, stride=1, recur=True, preserve_input=False, use_label=False, all_outputs=False, **kwargs):
         super().__init__(layers, steps, all_outputs=all_outputs, **kwargs)
 
         self.stride = stride
         self.recur = recur
         self.preserve_input = preserve_input
+        self.use_label = use_label
+
+    def label_on(self):
+        self.use_label=True
+
+    def label_off(self):
+        self.use_label=False
+        self.layers[-1].label_off()
 
     def compute_output_shape(self, in_shape):
         self.build(in_shape)
@@ -86,18 +94,22 @@ class MultiRecursionBlock(RecursionBlock):
         return out_data, fwd_data, bwd_data
             
     
-    def call(self, inputs):
+    def call(self, input, label=None):
         # Creates blank data
 
         # Gets input shape
-        input_shape = inputs.shape
+        input_shape = input.shape
     
         # Adds blank data to input for deeper layers
-        blank_fwd = [batch_zeros(inputs, shape[1:]) for shape in self.fwd_shapes[1:]]
-        blank_bwd = [batch_zeros(inputs, shape[1:]) for shape in self.bwd_shapes]
-        fwd_data = [inputs] + blank_fwd
+        blank_fwd = [batch_zeros(input, shape[1:]) for shape in self.fwd_shapes[1:]]
+        blank_bwd = [batch_zeros(input, shape[1:]) for shape in self.bwd_shapes]
+        fwd_data = [input] + blank_fwd
         bwd_data = blank_bwd
-        out_data = [batch_zeros(inputs, shape[1:]) for shape in self.out_shapes]
+        out_data = [batch_zeros(input, shape[1:]) for shape in self.out_shapes]
+
+        if self.use_label:
+            # Sets label on last layer
+            self.layers[-1].set_label(label)
 
         # Step loop
 
@@ -267,176 +279,7 @@ class MultiDense(SimpleDense):
 
         return out
 
-class Hebbian(SimpleDense):
-    def __init__(self, units, rate=0.01, **kwargs):
-        super().__init__(units, **kwargs)
-        self.rate = rate
-
-    def build(self, shape):
-        # Defines weight
-        self.w = self.add_weight("weight", (shape[-1], self.units), 
-                                    trainable=True, 
-                                    initializer=self.weight_initializer)
-        
-        # Previous weight value
-        self.prev_weight = self.add_weight("prev", (shape[-1], self.units), 
-                                    trainable=False, 
-                                    initializer="zeros")
-
-        # Saves current weight
-        self.prev_weight.assign(self.w)
-
-        # Hebbian delta value
-        self.delta = self.add_weight("delta", (shape[-1], self.units), 
-                                    trainable=False, 
-                                    initializer="zeros")
-
-    def call(self, in_data):
-        # Updates weights using hebbian delta values weighted by loss gradient
-
-        # Gets loss gradient and applies sigmoid to reciprocal gradient
-        gradient = tf.math.sigmoid(self.w - self.prev_weight)
-
-        # Updates weight with hebbian delta and leg rate
-        self.w.assign_add(self.rate * self.delta * gradient)
-
-        # Saves current weight
-        self.prev_weight.assign(self.w)
-
-        # Uses regular dense operation
-        out = tf.matmul(in_data, self.w)
-
-        # Gets hebbian excitation values on weights
-        # Adds dimenions to correspond axes
-        in_expand = tf.expand_dims(in_data, axis=-1)
-        out_expand = tf.expand_dims(out, axis=-2)
-        excit = out_expand * in_expand
-
-        # Gets hebbian inhibition based on correlation of weights to output
-        out_correl = tf.reduce_sum(self.w * out_expand, axis=-1)
-        out_correl = tf.expand_dims(out_correl, axis=-1)
-        inhib = out_expand * out_correl
-
-        # Gets weight delta step averaged over batch
-        delta = tf.reduce_mean(excit - inhib, axis=0)
-
-        # Assigns delta step
-        self.delta.assign(delta)
-
-        # Add bias if exists
-        if self.use_bias:
-            out = out + self.b
-
-        # Uses activation
-        if not self.activation is None:
-            out = self.activation(out)
-
-        return out
-
-class MultiHebbian(MultiDense):
-    def __init__(self, units, rate=0.01, activation=None, use_bias=True, bias_initializer=None, weight_initializer=None, **kwargs):
-        super().__init__(units, activation=activation, use_bias=use_bias, bias_initializer=bias_initializer, weight_initializer=weight_initializer, **kwargs)
-        self.rate = tf.constant(rate, dtype=tf.float32)
-
-    def define_weights(self, fwd_shape, bwd_shape):
-        # Defines actual weights
-        self.fwd = self.add_weight("forward", (fwd_shape[-1], self.units), 
-                                    trainable=True, 
-                                    initializer=self.weight_initializer)
-        self.bwd = self.add_weight("backward", (bwd_shape[-1], self.units), 
-                                    trainable=True,
-                                    initializer = self.weight_initializer)
-
-        # Defines previous weights and updates them
-        self.prev_fwd = self.add_weight("prev_forward", (fwd_shape[-1], self.units), 
-                                    trainable=False, 
-                                    initializer="zeros")
-        self.prev_fwd.assign(self.fwd)
-        self.prev_bwd = self.add_weight("prev_backward", (bwd_shape[-1], self.units), 
-                                    trainable=False,
-                                    initializer = "zeros")
-        self.prev_bwd.assign(self.bwd)
-
-        # Hebbian values
-        self.hebb_vals_fwd = self.add_weight("hebbian_vals_fwd", (2, fwd_shape[-1], self.units), 
-                                    trainable=False, 
-                                    initializer="zeros")
-
-        self.hebb_vals_bwd = self.add_weight("hebbian_vals_bwd", (2, bwd_shape[-1], self.units), 
-                                    trainable=False, 
-                                    initializer="zeros")
-        
-        # Inhibitory and excitatory weights
-        self.hebb_weights_fwd = self.add_weight("hebbian_weights_fwd", (2, fwd_shape[-1], self.units), 
-                                    trainable=False, 
-                                    initializer="ones")
-
-        self.hebb_weights_bwd = self.add_weight("hebbian_weights_bwd", (2, bwd_shape[-1], self.units), 
-                                    trainable=False,
-                                    initializer="ones")
-
-    def call(self, f_in, b_in):
-        # Sets up weights and formats input
-        f_in, b_in = self.build_input(f_in, b_in)
-
-        inputs = (f_in, b_in)
-        weights = (self.fwd, self.bwd)
-        prev_weights = (self.prev_fwd, self.prev_bwd)
-        hebb_vals = (self.hebb_vals_fwd, self.hebb_vals_bwd)
-        hebb_weights = (self.hebb_weights_fwd, self.hebb_weights_bwd)
-
-        # Updates weights using gradient weighted by hebbian correlation
-        for weight, prev_weight, hebb_val, hebb_weight in zip(weights, prev_weights, hebb_vals, hebb_weights):
-            # Gets loss gradient and expands
-            loss_grad = weight - prev_weight
-            expand_grad = tf.expand_dims(loss_grad, axis=0)
-
-            # Updates inhibitory and excitatory weights and gets delta value
-            new_weight = tf.math.divide_no_nan(expand_grad * tf.math.softmax(hebb_weight, axis=0), hebb_val)
-            hebb_weight.assign(weighted_update(hebb_weight, new_weight, self.rate))
-
-            hebbian = tf.reduce_sum(hebb_val * hebb_weight, axis=0)
-            delta = tf.math.sigmoid((loss_grad - hebbian)**2)
-
-            # Weights gradient with delta value
-            weight.assign(prev_weight + loss_grad * delta)
-
-            prev_weight.assign(weight)
-
-        # Calls multidense weights
-
-        # Adds forward and backward inputs weighted by weights
-        out = tf.matmul(f_in, self.fwd) + tf.matmul(b_in, self.bwd)
-
-        # Applies hebbian math to forward and backward inputs
-        out_expand = tf.expand_dims(out, axis=-2)
-
-        for in_data, weight, hebb_val in zip(inputs, weights, hebb_vals):
-            # Gets hebbian correlation values on weights
-            # Adds dimenions to correspond axes
-            in_expand = tf.expand_dims(in_data, axis=-1)
-            excit = tf.reduce_mean(out_expand * in_expand, axis=0)
-
-            # Gets hebbian inhibition based on correlation of weights to output
-            out_correl = tf.reduce_sum(weight * out_expand, axis=-1)
-            out_correl = tf.expand_dims(out_correl, axis=-1)
-            inhib = -tf.reduce_mean(out_expand * out_correl, axis=0)
-
-            # Gets weight delta step averaged over batch and assigns to variable
-            vals = tf.stack([excit, inhib], axis=0)
-            hebb_val.assign(vals)
-
-        # Add bias if exists
-        if self.use_bias:
-            out = out + self.b
-
-        # Uses activation
-        if not self.activation is None:
-            out = self.activation(out)
-
-        return out
-
-class MultiHebbian2(MultiDense):
+class MultiHebb2(MultiDense):
     def __init__(self, units, activation=None, use_bias=True, bias_initializer=None, weight_initializer=None, **kwargs):
         super().__init__(units, activation=activation, use_bias=use_bias, bias_initializer=bias_initializer, weight_initializer=weight_initializer, **kwargs)
 
@@ -522,6 +365,82 @@ class MultiHebbian2(MultiDense):
             out = self.activation(out)
 
         return out
+    
+class MultiHebbQ(MultiDense):
+    def __init__(self, units, activation=None, use_bias=True, bias_initializer=None, weight_initializer=None, **kwargs):
+        super().__init__(units, activation=activation, use_bias=False, bias_initializer=bias_initializer, weight_initializer=weight_initializer, **kwargs)
+
+        self.use_bias = use_bias
+        if use_bias:
+            self.b = self.add_weight("bias", (self.units,), trainable=False, initializer=self.bias_initializer)
+        self.use_label=False
+
+    def define_weights(self, fwd_shape, bwd_shape):
+        # Defines actual weights
+        self.fwd = self.add_weight("forward", (fwd_shape[-1], self.units), 
+                                    trainable=False, 
+                                    initializer=self.weight_initializer)
+        self.bwd = self.add_weight("backward", (bwd_shape[-1], self.units), 
+                                    trainable=False,
+                                    initializer = self.weight_initializer)
+        self.label = self.add_weight("label", (32, self.units),
+                                     trainable=False,
+                                     initializer = self.weight_initializer)
+    
+    def set_label(self, label):
+        # Sets label
+        self.use_label = True
+        self.label = label
+
+    def label_off(self):
+        self.use_label = False
+
+    def call(self, f_in, b_in):
+        # Sets up weights and formats input
+        f_in, b_in = self.build_input(f_in, b_in)
+
+        inputs = (f_in, b_in)
+        weights = (self.fwd, self.bwd)
+
+        # Calls multidense weights
+
+        # Adds forward and backward inputs weighted by weights
+        out = tf.matmul(f_in, self.fwd) + tf.matmul(b_in, self.bwd)
+
+        # Adds bias if used
+        if self.use_bias:
+            out = out + self.b
+
+        # Uses activation
+        if not self.activation is None:
+            out = self.activation(out)
+
+        # Uses label for training if enabled
+        if self.use_label:
+            train_out = self.label
+        else:
+            train_out = out
+
+        # Applies hebbian math to forward and backward inputs
+        out_expand = tf.expand_dims(train_out, axis=-2)
+
+        for in_data, weight in zip(inputs, weights):
+            # Gets hebbian correlation values on weights
+            # Adds dimenions to correspond axes
+            in_expand = tf.expand_dims(in_data, axis=-1)
+            
+            # Gets weight delta step averaged over batch
+            delta = tf.reduce_mean(out_expand*in_expand, axis=0)
+
+            # Adds delta correction to weight (normalized)
+            weight.assign_add(tf.tanh(delta))
+
+        # Train bias by treating as extra weight with constant input of 1
+        if self.use_bias:
+            b_delta = tf.reduce_mean(-tf.tanh(train_out), axis=0)
+            self.b.assign_add(b_delta) # Adds to bias (normalized)
+
+        return train_out
 
 class MultiConv2D(tf.keras.layers.Layer):
     def __init__(self, filters, kernel_size, strides=[(1,1), (1,1)], padding=['valid', 'valid'], data_format=None, dilation_rate=[(1,1), (1,1)], 

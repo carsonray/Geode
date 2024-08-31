@@ -352,7 +352,7 @@ class CategoricalTracker(Tracker):
         if self.reduction == "none":
             loss = tf.reduce_mean(loss, axis=0)
             
-        self.loss_track.update_state(loss)
+        self.loss_track.update_state(tf.reduce_max(pred))
 
         # Updates accuracy metric
         self.accuracy.update_state(label, pred)
