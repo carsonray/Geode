@@ -326,7 +326,7 @@ class MultiHebb2(MultiDense):
             gradient = weight - prev_weight
 
             # Updates weight with hebbian weighting
-            weight.assign_add(gradient * delta)
+            weight.assign_add(gradient*delta)
 
             # Saves current weight
             prev_weight.assign(weight)
@@ -346,15 +346,13 @@ class MultiHebb2(MultiDense):
             excit = out_expand * in_expand
 
             # Gets hebbian inhibition based on correlation of weights to output
-            out_correl = tf.reduce_sum(weight * out_expand, axis=-1)
-            out_correl = tf.expand_dims(out_correl, axis=-1)
-            inhib = out_expand * out_correl
+            inhib = out_expand * weight
 
             # Gets weight delta step averaged over batch
             new_delta = tf.reduce_mean(excit - inhib, axis=0)
 
             # Assigns delta step with tanh function
-            delta.assign(tf.math.tanh(new_delta))
+            delta.assign(tf.nn.sigmoid(new_delta))
 
         # Add bias if exists
         if self.use_bias:

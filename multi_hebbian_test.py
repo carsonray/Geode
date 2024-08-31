@@ -10,7 +10,7 @@ train_data = dataset.get("train", batch_size=32)
 val_data = dataset.get("validate", batch_size=32)
 test_data = dataset.get("test", batch_size=32)
 
-runner = geode.models.MultiHebbianModel2()
+runner = geode.models.MultiHebbian2()
 model = runner(name="multi_hebbian2")
 runner.compile(model)
 
