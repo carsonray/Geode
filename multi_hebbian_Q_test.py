@@ -37,5 +37,5 @@ params = {
 
 ops = geode.operations.BasicModelOps(params)
 
-ops.train(epochs=1, validation_data=val_data)
+ops.train(epochs=20, validation_data=val_data)
 ops.test()

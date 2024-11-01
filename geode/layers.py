@@ -409,10 +409,6 @@ class MultiHebbQ(MultiDense):
         if self.use_bias:
             out = out + self.b
 
-        # Uses activation
-        if not self.activation is None:
-            out = self.activation(out)
-
         # Uses label for training if enabled
         if self.use_label:
             train_out = self.label
@@ -431,12 +427,16 @@ class MultiHebbQ(MultiDense):
             delta = tf.reduce_mean(out_expand*in_expand, axis=0)
 
             # Adds delta correction to weight (normalized)
-            weight.assign_add(tf.tanh(delta))
+            weight.assign_add(-delta*0.01)
 
         # Train bias by treating as extra weight with constant input of 1
         if self.use_bias:
-            b_delta = tf.reduce_mean(-tf.tanh(train_out), axis=0)
-            self.b.assign_add(b_delta) # Adds to bias (normalized)
+            b_delta = tf.reduce_mean(train_out, axis=0)
+            self.b.assign_add(-b_delta*0.01) # Adds to bias (normalized)
+        
+        # Uses activation
+        if not self.activation is None:
+            train_out = self.activation(train_out)
 
         return train_out
 
