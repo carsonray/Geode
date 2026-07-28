@@ -121,7 +121,7 @@ class FashionMNIST(ImgDataSet):
 
             return img, label
 
-        apply_func = lambda ds: ds.map(map_func, num_parallel_calls=tf.data.AUTOTUNE).cache()
+        apply_func = lambda ds: ds.map(map_func, num_parallel_calls=tf.data.AUTOTUNE)
 
         self.process("train", apply_func)
         self.process("train", lambda ds: ds.shuffle(self.examples["train"]))
@@ -169,7 +169,7 @@ class CIFAR10(ImgDataSet):
 
             return img, label
 
-        apply_func = lambda ds: ds.map(map_func, num_parallel_calls=tf.data.AUTOTUNE).cache()
+        apply_func = lambda ds: ds.map(map_func, num_parallel_calls=tf.data.AUTOTUNE)
 
         self.process("train", apply_func)
         self.process("train", lambda ds: ds.shuffle(self.examples["train"]))
@@ -217,7 +217,7 @@ class MNISTDigits(ImgDataSet):
 
             return img, label
 
-        apply_func = lambda ds: ds.map(map_func, num_parallel_calls=tf.data.AUTOTUNE).cache()
+        apply_func = lambda ds: ds.map(map_func, num_parallel_calls=tf.data.AUTOTUNE)
 
         self.process("train", apply_func)
         self.process("train", lambda ds: ds.shuffle(self.examples["train"]))
@@ -254,7 +254,7 @@ class DeepWeeds(ImgDataSet):
             return img, label
 
         # Normalizes images and encodes labels
-        data = data.map(map_func, num_parallel_calls=tf.data.AUTOTUNE).cache()
+        data = data.map(map_func, num_parallel_calls=tf.data.AUTOTUNE)
 
         # Splits data into train, validation, and test sets
         splits, nums = apply_splits_dataset(data, length, [0.8, 0.1, 0.1], with_nums=True)
@@ -527,7 +527,7 @@ def apply_splits_dataset(dataset, length, splits, with_nums=False):
     # Tracks movement through dataset
     num = 0
     for split in lengths:
-        split_data.append(dataset.skip(num).take(split).cache())
+        split_data.append(dataset.skip(num).take(split))
         num += split
 
     # Returns splits
@@ -563,7 +563,7 @@ def dataset_from_csv(data_path, col_names=None, label_name=None, add_categorical
     processed_features = preprocess_model(data_dict)
 
     # Gets tf.dataset
-    dataset = tf.data.Dataset.from_tensor_slices((processed_features, labels)).cache()
+    dataset = tf.data.Dataset.from_tensor_slices((processed_features, labels))
 
     # Shuffles if necessary
     if shuffle:
@@ -710,7 +710,7 @@ def expand_dataset(dataset, length, size, buffer=None):
         dataset = dataset.shuffle(buffer)
 
     # Takes desired elements from dataset
-    dataset = dataset.take(size).cache()
+    dataset = dataset.take(size)
 
     return dataset
 

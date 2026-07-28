@@ -49,6 +49,27 @@ class FashionDense1(ModelRunner):
         model.compile(optimizer='adam',
             loss=loss,
             metrics=['accuracy'])
+        
+class FassionAssoc1(ModelRunner):
+    def get(self, name="fassion_assoc1", **kwargs):
+        # Gets image and label inputs
+        img_in = K.Input(shape=[28, 28, 1], name="img_in", dtype=tf.float32)
+        label_in = K.Input(shape=[10], name="label_in", dtype=tf.float32)
+        type_in = K.Input(shape=[2], name="type_in", dtype=tf.float32)
+
+        img = K.layers.Flatten(input_shape=(28, 28))(img_in)
+        concat = K.layers.Concatenate(axis=-1)([img, label_in, type_in])
+        x = K.layers.Dense(128, activation='relu')(concat)
+        x = K.layers.Dense(20, activation='relu')(x)
+        x = K.layers.Dense(10)(x)
+
+        model = AssocModel([img_in, label_in, type_in], x, name=name, **kwargs)
+
+        return model
+
+    def compile(self, model):
+        model.compile(optimizer='adam',
+            metrics=['accuracy'])
 
 class MultiProcess1(ModelRunner):
     def get(self, name="multi_process1"):
@@ -627,6 +648,179 @@ class TaskModel(tf.keras.Model):
         for tracker in self.trackers:
             metrics.extend(tracker.metrics)
             
+        return metrics
+    
+class AssocModel(tf.keras.Model):
+    def __init__(self, inputs, outputs, **kwargs):
+        super().__init__(inputs, outputs, **kwargs)
+        # ensure trackers exists so metrics property is safe before compile
+        self.trackers = []
+        self.loss_metric = None
+        self.accuracy_metric = None
+        self.assoc_collapse_weight = 0.75
+        self.assoc_spread_weight = 0.25
+        
+        self.label_eye = {
+            "img_in": np.zeros((10, 28, 28, 1), dtype=np.float32),
+            "label_in": np.eye(10, dtype=np.float32),
+            "type_in": np.tile(np.array([[0.0, 1.0]], dtype=np.float32), (10, 1)),
+        }
+
+    def compile(self, **kwargs):
+        super().compile(**kwargs)
+
+        # simple loss metric so Keras sees at least one metric
+        self.loss_metric = tf.keras.metrics.Mean(name="loss")
+        # simple scalar metric for the computed retrieval accuracy
+        self.accuracy_metric = tf.keras.metrics.Mean(name="accuracy")
+        # ensure trackers list exists
+        if not hasattr(self, 'trackers'):
+            self.trackers = []
+
+    def tracker_metrics(self, losses, labels=None, pred=None):
+        """Update registered trackers. Accepts a single loss or a list of losses."""
+        if losses is None:
+            return
+        if not isinstance(losses, (list, tuple)):
+            losses = [losses]
+
+        for num, tracker in enumerate(getattr(self, 'trackers', []) or []):
+            try:
+                tracker.update_metrics(losses[num], labels, pred)
+            except Exception:
+                try:
+                    tracker.update_metrics(losses[num])
+                except Exception:
+                    pass
+
+    def label_tensor(self, labels):
+        if isinstance(labels, dict):
+            label_tensor = labels.get("cat_out")
+            if label_tensor is None:
+                label_tensor = next(iter(labels.values()))
+            return label_tensor
+        return labels
+
+    def label_indices(self, labels):
+        return tf.argmax(self.label_tensor(labels), axis=-1)
+
+    def assoc_logits(self, pred_features, pred_labels):
+        pred_features = tf.expand_dims(pred_features, axis=1)
+        pred_labels = tf.expand_dims(pred_labels, axis=0)
+        return tf.norm(pred_features - pred_labels, axis=-1)
+
+    def assoc_loss(self, pred_features, pred_labels):
+        # Minimize same-sample Euclidean distance while keeping both branches away from collapse.
+        pair_distance = tf.reduce_mean(tf.reduce_sum(tf.square(pred_features - pred_labels), axis=-1))
+
+        feature_norms = tf.norm(pred_features, axis=-1)
+        label_norms = tf.norm(pred_labels, axis=-1)
+        collapse_loss = tf.reduce_mean(tf.square(feature_norms - 1.0)) + tf.reduce_mean(tf.square(label_norms - 1.0))
+
+        # Push label prototypes apart so classes occupy distinct regions.
+        proto_embeddings = self(self.label_eye, training=True)
+        proto_embeddings = tf.nn.l2_normalize(proto_embeddings, axis=-1)
+        proto_sim = tf.linalg.matmul(proto_embeddings, proto_embeddings, transpose_b=True)
+        proto_sim = proto_sim - tf.eye(tf.shape(proto_sim)[0], dtype=proto_sim.dtype)
+        spread_loss = tf.reduce_mean(tf.square(proto_sim))
+
+        return pair_distance + self.assoc_collapse_weight * collapse_loss + self.assoc_spread_weight * spread_loss
+
+    def assoc_accuracy(self, pred_features, pred_labels, label_indices):
+        distances = self.assoc_logits(pred_features, pred_labels)
+        predicted_indices = tf.argmin(distances, axis=-1)
+
+        return tf.reduce_mean(tf.cast(tf.equal(predicted_indices, label_indices), tf.float32))
+            
+    def prep_data(self, features):
+        # Creates dataset with features and blank labels
+        features_only = features.copy()
+        features_only["label_in"] = batch_zeros(features["label_in"], features["label_in"].shape[1:])
+        features_only["type_in"] = tf.tile(tf.constant([[1.0, 0.0]], dtype=tf.float32), [tf.shape(features["img_in"])[0], 1])
+        
+        # Creates dataset with labels and blank features
+        labels_only = features.copy()
+        labels_only["img_in"] = batch_zeros(features["img_in"], features["img_in"].shape[1:])
+        labels_only["type_in"] = tf.tile(tf.constant([[0.0, 1.0]], dtype=tf.float32), [tf.shape(features["img_in"])[0], 1])
+
+        return features_only, labels_only
+
+    def train_step(self, data):
+        # Unpacks data and labels
+        features, labels = data
+        
+        features_only, labels_only = self.prep_data(features)
+        label_indices = self.label_indices(labels)
+
+        # Gradient descent
+        with tf.GradientTape() as tape:
+            # Forward passes through labels and features only datasets
+            pred_features = self(features_only, training=True)
+            pred_labels = self(labels_only, training=True)
+
+            # Gets losses
+            loss = self.assoc_loss(pred_features, pred_labels)
+            accuracy = self.assoc_accuracy(pred_features, pred_labels, label_indices)
+
+        # Compute gradients
+        trainable_vars = self.trainable_variables
+        gradients = tape.gradient(loss, trainable_vars)
+        
+        # Update weights
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        
+        # Update simple loss metric and return results (report batch loss)
+        self.loss_metric.update_state(loss)
+        self.accuracy_metric.update_state(accuracy)
+        results = {"loss": loss}
+        for m in self.metrics:
+            results[m.name] = m.result()
+
+        return results
+
+    def test_step(self, data):
+        # Unpacks data and labels
+        features, labels = data
+        
+        features_only, labels_only = self.prep_data(features)
+        label_indices = self.label_indices(labels)
+
+        # Forward passes through paired feature and label branches for the loss.
+        pred_features = self(features_only, training=False)
+        pred_labels = self(labels_only, training=False)
+        
+        # Computes dot-product similarity between paired branches for validation loss.
+        loss = self.assoc_loss(pred_features, pred_labels)
+
+        # Uses prototype matching for validation accuracy.
+        pred_labels = self(self.label_eye, training=False)
+        accuracy = self.assoc_accuracy(pred_features, pred_labels, label_indices)
+
+        self.loss_metric.update_state(loss)
+        self.accuracy_metric.update_state(accuracy)
+
+        results = {"loss": loss, "accuracy": accuracy}
+        for m in self.metrics:
+            results[m.name] = m.result()
+
+        return results
+    
+    @property
+    def metrics(self):
+        metrics = []
+
+        # include simple loss metric if present
+        if getattr(self, "loss_metric", None) is not None:
+            metrics.append(self.loss_metric)
+
+        # include simple accuracy metric if present
+        if getattr(self, "accuracy_metric", None) is not None:
+            metrics.append(self.accuracy_metric)
+
+        # include any tracker metrics
+        for tracker in getattr(self, "trackers", []) or []:
+            metrics.extend(getattr(tracker, "metrics", []))
+
         return metrics
     
 class HebbianModel(tf.keras.Model):
